@@ -1,4 +1,7 @@
+import { CfnCluster } from "@mongodbatlas-awscdk/cluster";
+import { CfnDatabaseUser } from "@mongodbatlas-awscdk/database-user";
 import { CfnProject } from "@mongodbatlas-awscdk/project";
+import { CfnProjectIpAccessList } from "@mongodbatlas-awscdk/project-ip-access-list";
 import {
   CfnTypeActivation,
   NestedStack,
@@ -28,10 +31,16 @@ export class DemoStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    const prerequisites = new PrerequisitesStack(this, "PrerequisitesStack");
-    const project = new ProjectStack(this, "ProjectStack");
+    const prerequisitesStack = new PrerequisitesStack(
+      this,
+      "PrerequisitesStack"
+    );
+    const projectStack = new ProjectStack(this, "ProjectStack");
+    new ClusterStack(this, "ClusterStack", {
+      projectId: projectStack.atlasProject.attrId,
+    });
 
-    project.addDependency(prerequisites);
+    projectStack.addDependency(prerequisitesStack);
   }
 }
 
@@ -86,7 +95,12 @@ class PrerequisitesStack extends NestedStack {
     });
 
     // extensions
-    [CfnProject.CFN_RESOURCE_TYPE_NAME]
+    [
+      CfnProject.CFN_RESOURCE_TYPE_NAME,
+      CfnDatabaseUser.CFN_RESOURCE_TYPE_NAME,
+      CfnProjectIpAccessList.CFN_RESOURCE_TYPE_NAME,
+      CfnCluster.CFN_RESOURCE_TYPE_NAME,
+    ]
       .map((type) => type.replace(/::/g, "-"))
       .map(
         (type) =>
@@ -99,12 +113,67 @@ class PrerequisitesStack extends NestedStack {
 }
 
 class ProjectStack extends NestedStack {
+  atlasProject: CfnProject;
+
   constructor(scope: Construct, id: string, props?: NestedStackProps) {
     super(scope, id, props);
 
-    new CfnProject(this, "DemoStackAtlasProject", {
+    this.atlasProject = new CfnProject(this, "DemoStackAtlasProject", {
       name: "Demo",
       orgId: ATLAS_ORG_ID,
+    });
+
+    new CfnDatabaseUser(this, "DemoStackAtlasDatabaseUser", {
+      databaseName: "admin",
+      projectId: this.atlasProject.attrId,
+      username: "test",
+      password: "{{DB_PASSWORD}}",
+      roles: [
+        {
+          databaseName: "admin",
+          roleName: "readWriteAnyDatabase",
+        },
+      ],
+    });
+
+    new CfnProjectIpAccessList(this, "DemoStackAtlasProjectIpAccessList", {
+      projectId: this.atlasProject.attrId,
+      accessList: [{ cidrBlock: "0.0.0.0/0" }],
+    });
+  }
+}
+
+class ClusterStack extends NestedStack {
+  constructor(
+    scope: Construct,
+    id: string,
+    props?: NestedStackProps & { projectId: string }
+  ) {
+    super(scope, id, props);
+
+    const projectId = props?.projectId;
+    if (!projectId) {
+      throw new Error("Missing Atlas project id");
+    }
+
+    new CfnCluster(this, "DemoStackAtlasCluster", {
+      projectId,
+      name: "Demo",
+      clusterType: "REPLICASET",
+      replicationSpecs: [
+        {
+          advancedRegionConfigs: [
+            {
+              regionName: REGION.replace(/-/g, "_").toUpperCase(),
+              priority: 7,
+              electableSpecs: {
+                instanceSize: "M10",
+                nodeCount: 3,
+              },
+            },
+          ],
+        },
+      ],
     });
   }
 }
