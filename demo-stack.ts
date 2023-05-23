@@ -1,5 +1,11 @@
 import { CfnProject } from "@mongodbatlas-awscdk/project";
-import { CfnTypeActivation, Stack, StackProps } from "aws-cdk-lib";
+import {
+  CfnTypeActivation,
+  NestedStack,
+  NestedStackProps,
+  Stack,
+  StackProps,
+} from "aws-cdk-lib";
 import {
   Role,
   CompositePrincipal,
@@ -22,7 +28,16 @@ export class DemoStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // prerequisites
+    const prerequisites = new PrerequisitesStack(this, "PrerequisitesStack");
+    const project = new ProjectStack(this, "ProjectStack");
+
+    project.addDependency(prerequisites);
+  }
+}
+
+class PrerequisitesStack extends NestedStack {
+  constructor(scope: Construct, id: string, props?: NestedStackProps) {
+    super(scope, id, props);
 
     // execution role
     // https://github.com/mongodb/mongodbatlas-cloudformation-resources/blob/master/examples/execution-role.yaml
@@ -80,9 +95,14 @@ export class DemoStack extends Stack {
             executionRoleArn: executionRole.roleArn,
           })
       );
+  }
+}
 
-    // atlas project
-    const demoAtlasProject = new CfnProject(this, "DemoStackAtlasProject", {
+class ProjectStack extends NestedStack {
+  constructor(scope: Construct, id: string, props?: NestedStackProps) {
+    super(scope, id, props);
+
+    new CfnProject(this, "DemoStackAtlasProject", {
       name: "Demo",
       orgId: ATLAS_ORG_ID,
     });
