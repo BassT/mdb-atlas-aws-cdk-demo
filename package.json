@@ -2,6 +2,7 @@
   "dependencies": {
     "@mongodbatlas-awscdk/cluster": "^1.1.5",
     "@mongodbatlas-awscdk/database-user": "^1.1.4",
+    "@mongodbatlas-awscdk/network-peering": "^1.1.5",
     "@mongodbatlas-awscdk/project": "^1.1.5",
     "@mongodbatlas-awscdk/project-ip-access-list": "^1.1.5",
     "aws-cdk-lib": "^2.77.0",

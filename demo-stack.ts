@@ -1,5 +1,6 @@
 import { CfnCluster } from "@mongodbatlas-awscdk/cluster";
 import { CfnDatabaseUser } from "@mongodbatlas-awscdk/database-user";
+import { CfnNetworkPeering } from "@mongodbatlas-awscdk/network-peering";
 import { CfnProject } from "@mongodbatlas-awscdk/project";
 import { CfnProjectIpAccessList } from "@mongodbatlas-awscdk/project-ip-access-list";
 import {
@@ -139,6 +140,15 @@ class ProjectStack extends NestedStack {
     new CfnProjectIpAccessList(this, "DemoStackAtlasProjectIpAccessList", {
       projectId: this.atlasProject.attrId,
       accessList: [{ cidrBlock: "0.0.0.0/0" }],
+    });
+
+    new CfnNetworkPeering(this, "TestStackAtlasNetworkPeering", {
+      containerId: "HOW_CAN_WE_GET_THE_CONTAINER_ID_???",
+      projectId: this.atlasProject.attrId,
+      vpcId: VPC.id,
+      accepterRegionName: REGION,
+      awsAccountId: VPC.accountId,
+      routeTableCidrBlock: VPC.cidrBlock,
     });
   }
 }
