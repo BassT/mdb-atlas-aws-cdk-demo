@@ -1,5 +1,6 @@
 import { CfnCluster } from "@mongodbatlas-awscdk/cluster";
 import { CfnDatabaseUser } from "@mongodbatlas-awscdk/database-user";
+import { CfnNetworkContainer } from "@mongodbatlas-awscdk/network-container";
 import { CfnNetworkPeering } from "@mongodbatlas-awscdk/network-peering";
 import { CfnProject } from "@mongodbatlas-awscdk/project";
 import { CfnProjectIpAccessList } from "@mongodbatlas-awscdk/project-ip-access-list";
@@ -11,12 +12,12 @@ import {
   StackProps,
 } from "aws-cdk-lib";
 import {
-  Role,
   CompositePrincipal,
-  ServicePrincipal,
+  Effect,
   PolicyDocument,
   PolicyStatement,
-  Effect,
+  Role,
+  ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 
@@ -101,6 +102,8 @@ class PrerequisitesStack extends NestedStack {
       CfnDatabaseUser.CFN_RESOURCE_TYPE_NAME,
       CfnProjectIpAccessList.CFN_RESOURCE_TYPE_NAME,
       CfnCluster.CFN_RESOURCE_TYPE_NAME,
+      CfnNetworkContainer.CFN_RESOURCE_TYPE_NAME,
+      CfnNetworkPeering.CFN_RESOURCE_TYPE_NAME,
     ]
       .map((type) => type.replace(/::/g, "-"))
       .map(
@@ -115,6 +118,7 @@ class PrerequisitesStack extends NestedStack {
 
 class ProjectStack extends NestedStack {
   atlasProject: CfnProject;
+  networkContainer: CfnNetworkContainer;
 
   constructor(scope: Construct, id: string, props?: NestedStackProps) {
     super(scope, id, props);
@@ -142,8 +146,18 @@ class ProjectStack extends NestedStack {
       accessList: [{ cidrBlock: "0.0.0.0/0" }],
     });
 
-    new CfnNetworkPeering(this, "TestStackAtlasNetworkPeering", {
-      containerId: "HOW_CAN_WE_GET_THE_CONTAINER_ID_???",
+    this.networkContainer = new CfnNetworkContainer(
+      this,
+      "DemoStackAtlasNetworkContainer",
+      {
+        atlasCidrBlock: "192.168.248.0/21",
+        projectId: this.atlasProject.attrId,
+        regionName: REGION.replace(/-/g, "_").toUpperCase(),
+      }
+    );
+
+    new CfnNetworkPeering(this, "DemoStackAtlasNetworkPeering", {
+      containerId: this.networkContainer.attrId,
       projectId: this.atlasProject.attrId,
       vpcId: VPC.id,
       accepterRegionName: REGION,
