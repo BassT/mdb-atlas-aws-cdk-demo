@@ -1,3 +1,4 @@
+import * as dotenv from 'dotenv';
 import { CfnCluster } from "@mongodbatlas-awscdk/cluster";
 import { CfnDatabaseUser } from "@mongodbatlas-awscdk/database-user";
 import { CfnNetworkContainer } from "@mongodbatlas-awscdk/network-container";
@@ -21,13 +22,29 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 
-const REGION = "eu-west-1";
-const ATLAS_ORG_ID = "{{ATLAS_ORG_ID}}";
+// Load environment variables
+dotenv.config();
+
+// Environment variables with validation
+const REGION = process.env.AWS_REGION || "eu-west-1";
+const ATLAS_ORG_ID = process.env.ATLAS_ORG_ID;
 const VPC = {
-  id: "{{AWS_VPC_ID}}  ",
-  cidrBlock: "10.0.0.0/24",
-  accountId: "{{AWS_ACCOUNT_ID}}",
+  id: process.env.AWS_VPC_ID,
+  cidrBlock: process.env.AWS_VPC_CIDR_BLOCK,
+  accountId: process.env.AWS_ACCOUNT_ID,
 };
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const IP_ACCESS_CIDR = process.env.IP_ACCESS_CIDR;
+const ATLAS_CIDR_BLOCK = process.env.ATLAS_CIDR_BLOCK;
+
+// Validate required environment variables
+if (!ATLAS_ORG_ID) throw new Error('ATLAS_ORG_ID environment variable is required');
+if (!VPC.id) throw new Error('AWS_VPC_ID environment variable is required');
+if (!VPC.cidrBlock) throw new Error('AWS_VPC_CIDR_BLOCK environment variable is required');
+if (!VPC.accountId) throw new Error('AWS_ACCOUNT_ID environment variable is required');
+if (!DB_PASSWORD) throw new Error('DB_PASSWORD environment variable is required');
+if (!IP_ACCESS_CIDR) throw new Error('IP_ACCESS_CIDR environment variable is required');
+if (!ATLAS_CIDR_BLOCK) throw new Error('ATLAS_CIDR_BLOCK environment variable is required');
 
 export class DemoStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -132,7 +149,7 @@ class ProjectStack extends NestedStack {
       databaseName: "admin",
       projectId: this.atlasProject.attrId,
       username: "test",
-      password: "{{DB_PASSWORD}}",
+      password: DB_PASSWORD,
       roles: [
         {
           databaseName: "admin",
@@ -143,14 +160,14 @@ class ProjectStack extends NestedStack {
 
     new CfnProjectIpAccessList(this, "DemoStackAtlasProjectIpAccessList", {
       projectId: this.atlasProject.attrId,
-      accessList: [{ cidrBlock: "0.0.0.0/0" }],
+      accessList: [{ cidrBlock: IP_ACCESS_CIDR }],
     });
 
     this.networkContainer = new CfnNetworkContainer(
       this,
       "DemoStackAtlasNetworkContainer",
       {
-        atlasCidrBlock: "192.168.248.0/21",
+        atlasCidrBlock: ATLAS_CIDR_BLOCK,
         projectId: this.atlasProject.attrId,
         regionName: REGION.replace(/-/g, "_").toUpperCase(),
       }
